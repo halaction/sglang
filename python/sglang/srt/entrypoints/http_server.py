@@ -700,9 +700,7 @@ async def v1_tokenize(raw_request: Request):
 
     return TokenizeResponse(
         count=len(input_ids),
-        max_model_len=getattr(
-            _global_state.tokenizer_manager.tokenizer, "max_model_length", 0
-        ),
+        max_model_len=_global_state.tokenizer_manager.context_len,
         tokens=input_ids,
     )
 
