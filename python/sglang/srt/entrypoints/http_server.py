@@ -56,6 +56,8 @@ from sglang.srt.entrypoints.openai.protocol import (
     ModelCard,
     ModelList,
     ScoringRequest,
+    TokenizeRequest,
+    TokenizeResponse,
     V1RerankReqInput,
 )
 from sglang.srt.entrypoints.openai.serving_chat import OpenAIServingChat
@@ -676,6 +678,33 @@ async def separate_reasoning_request(obj: SeparateReasoningReqInput, request: Re
     }
 
     return ORJSONResponse(content=response_data, status_code=200)
+
+
+@app.post("/v1/tokenize", dependencies=[Depends(validate_json_request)])
+async def v1_tokenize(raw_request: Request):
+    request_json: dict = await raw_request.json()
+    request = TokenizeRequest(**request_json)
+
+    if request.prompt:
+        input_ids: list[int] = _global_state.tokenizer_manager.tokenizer.encode(
+            request.prompt
+        )
+    elif request.messages:
+        input_ids: list[int] = (
+            _global_state.tokenizer_manager.tokenizer.apply_chat_template(
+                request.messages
+            )
+        )
+    else:
+        input_ids = []
+
+    return TokenizeResponse(
+        count=len(input_ids),
+        max_model_len=getattr(
+            _global_state.tokenizer_manager.tokenizer, "max_model_length", 0
+        ),
+        tokens=input_ids,
+    )
 
 
 ##### OpenAI-compatible API endpoints #####
