@@ -65,6 +65,7 @@ from sglang.srt.entrypoints.openai.serving_completions import OpenAIServingCompl
 from sglang.srt.entrypoints.openai.serving_embedding import OpenAIServingEmbedding
 from sglang.srt.entrypoints.openai.serving_rerank import OpenAIServingRerank
 from sglang.srt.entrypoints.openai.serving_score import OpenAIServingScore
+from sglang.srt.entrypoints.openai.serving_tokenize import OpenAIServingTokenize
 from sglang.srt.function_call.function_call_parser import FunctionCallParser
 from sglang.srt.managers.io_struct import (
     AbortReq,
@@ -143,6 +144,9 @@ async def lifespan(fast_api_app: FastAPI):
     )
     fast_api_app.state.openai_serving_rerank = OpenAIServingRerank(
         _global_state.tokenizer_manager
+    )
+    fast_api_app.state.openai_serving_tokenize = OpenAIServingTokenize(
+        _global_state.tokenizer_manager, _global_state.template_manager
     )
 
     if server_args.warmups is not None:
@@ -681,27 +685,9 @@ async def separate_reasoning_request(obj: SeparateReasoningReqInput, request: Re
 
 
 @app.post("/v1/tokenize", dependencies=[Depends(validate_json_request)])
-async def v1_tokenize(raw_request: Request):
-    request_json: dict = await raw_request.json()
-    request = TokenizeRequest(**request_json)
-
-    if request.prompt:
-        input_ids: list[int] = _global_state.tokenizer_manager.tokenizer.encode(
-            request.prompt
-        )
-    elif request.messages:
-        input_ids: list[int] = (
-            _global_state.tokenizer_manager.tokenizer.apply_chat_template(
-                request.messages
-            )
-        )
-    else:
-        input_ids = []
-
-    return TokenizeResponse(
-        count=len(input_ids),
-        max_model_len=_global_state.tokenizer_manager.context_len,
-        tokens=input_ids,
+async def v1_tokenize(request: TokenizeRequest, raw_request: Request):
+    return await raw_request.app.state.openai_serving_tokenize.handle_request(
+        request, raw_request
     )
 
 

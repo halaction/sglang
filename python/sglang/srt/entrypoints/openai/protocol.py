@@ -614,6 +614,7 @@ OpenAIServingRequest = Union[
     EmbeddingRequest,
     ScoringRequest,
     V1RerankReqInput,
+    TokenizeRequest,
 ]
 
 
