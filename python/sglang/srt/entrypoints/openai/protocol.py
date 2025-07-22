@@ -608,12 +608,25 @@ class RerankResponse(BaseModel):
     meta_info: Optional[dict] = None
 
 
+class TokenizeRequest(BaseModel):
+    model: str
+    prompt: str | None = None
+    messages: "list[ChatCompletionMessageParam] | None" = None
+
+
+class TokenizeResponse(BaseModel):
+    count: int
+    max_model_len: int
+    tokens: list[int]
+
+
 OpenAIServingRequest = Union[
     ChatCompletionRequest,
     CompletionRequest,
     EmbeddingRequest,
     ScoringRequest,
     V1RerankReqInput,
+    TokenizeRequest,
 ]
 
 
