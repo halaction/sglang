@@ -22,7 +22,7 @@ class OpenAIServingChatTokenize(OpenAIServingChat):
         request: TokenizeRequest,
     ) -> tuple[GenerateReqInput, TokenizeRequest]:
         if request.prompt is not None:
-            adapted_request = GenerateReqInput(text=request.prompt)
+            adapted_request = GenerateReqInput(text=request.prompt, sampling_params={})
         elif request.messages is not None:
             chat_completion_request = ChatCompletionRequest(
                 messages=request.messages,
@@ -32,7 +32,7 @@ class OpenAIServingChatTokenize(OpenAIServingChat):
                 chat_completion_request
             )
         else:
-            adapted_request = GenerateReqInput(input_ids=[])
+            adapted_request = GenerateReqInput(input_ids=[], sampling_params={})
 
         return adapted_request, request
 
