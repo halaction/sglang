@@ -1,5 +1,5 @@
 import logging
-from typing import Union
+from typing import Optional, Union
 
 from fastapi import Request
 from fastapi.responses import ORJSONResponse, StreamingResponse
@@ -17,6 +17,16 @@ logger = logging.getLogger(__name__)
 
 
 class OpenAIServingChatTokenize(OpenAIServingChat):
+    def _request_id_prefix(self) -> str:
+        return "chattokenize-"
+
+    def _validate_request(self, request: TokenizeRequest) -> Optional[str]:
+        """Validate that the input is valid."""
+        if not request.prompt and not request.messages:
+            return "Both prompt and messages cannot be empty."
+
+        return None
+
     def _convert_to_internal_request(
         self,
         request: TokenizeRequest,
