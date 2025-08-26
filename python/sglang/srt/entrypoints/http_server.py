@@ -59,6 +59,8 @@ from sglang.srt.entrypoints.openai.protocol import (
     ModelList,
     ResponsesRequest,
     ScoringRequest,
+    TokenizeRequest,
+    TokenizeResponse,
     V1RerankReqInput,
 )
 from sglang.srt.entrypoints.openai.serving_chat import OpenAIServingChat
@@ -66,6 +68,7 @@ from sglang.srt.entrypoints.openai.serving_completions import OpenAIServingCompl
 from sglang.srt.entrypoints.openai.serving_embedding import OpenAIServingEmbedding
 from sglang.srt.entrypoints.openai.serving_rerank import OpenAIServingRerank
 from sglang.srt.entrypoints.openai.serving_score import OpenAIServingScore
+from sglang.srt.entrypoints.openai.serving_tokenize import OpenAIServingTokenize
 from sglang.srt.function_call.function_call_parser import FunctionCallParser
 from sglang.srt.managers.io_struct import (
     AbortReq,
@@ -147,6 +150,9 @@ async def lifespan(fast_api_app: FastAPI):
     )
     fast_api_app.state.openai_serving_rerank = OpenAIServingRerank(
         _global_state.tokenizer_manager
+    )
+    fast_api_app.state.openai_serving_tokenize = OpenAIServingTokenize(
+        _global_state.tokenizer_manager, _global_state.template_manager
     )
 
     server_args: ServerArgs = fast_api_app.server_args
@@ -841,6 +847,13 @@ async def separate_reasoning_request(obj: SeparateReasoningReqInput, request: Re
     }
 
     return ORJSONResponse(content=response_data, status_code=200)
+
+
+@app.post("/v1/tokenize", dependencies=[Depends(validate_json_request)])
+async def v1_tokenize(request: TokenizeRequest, raw_request: Request):
+    return await raw_request.app.state.openai_serving_tokenize.handle_request(
+        request, raw_request
+    )
 
 
 @app.post("/pause_generation")
