@@ -436,6 +436,11 @@ class OpenAIServingChat(OpenAIServingBase):
                 )
             else:
                 sampling_params[constraint_type] = constraint_value
+
+        sampling_params["enable_thinking"] = self._get_enable_thinking_from_request(
+            request
+        )
+
         return sampling_params
 
     async def _handle_streaming_request(
