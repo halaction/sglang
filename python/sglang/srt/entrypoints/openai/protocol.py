@@ -584,6 +584,7 @@ class ChatCompletionRequest(BaseModel):
         stop: List[str],
         model_generation_config: Dict[str, Any],
         tool_call_constraint: Optional[Any] = None,
+        enable_thinking: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """
         Convert request to sampling parameters.
@@ -618,6 +619,7 @@ class ChatCompletionRequest(BaseModel):
             "ignore_eos": self.ignore_eos,
             "skip_special_tokens": self.skip_special_tokens,
             "logit_bias": self.logit_bias,
+            "enable_thinking": enable_thinking,
         }
 
         if self.response_format and self.response_format.type == "json_schema":
@@ -1055,7 +1057,7 @@ class ResponsesResponse(BaseModel):
                 Union[
                     ResponseOutputItem, ResponseReasoningItem, ResponseFunctionToolCall
                 ]
-            ]
+            ],
         ) -> bool:
             if not items:
                 return False

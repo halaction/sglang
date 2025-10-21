@@ -145,11 +145,14 @@ class OpenAIServingChat(OpenAIServingBase):
         # Process messages and apply chat template
         processed_messages = self._process_messages(request, is_multimodal)
 
+        enable_thinking = self._get_enable_thinking_from_request(request)
+
         # Build sampling parameters
         sampling_params = request.to_sampling_params(
             stop=processed_messages.stop,
             model_generation_config=self.default_sampling_params,
             tool_call_constraint=processed_messages.tool_call_constraint,
+            enable_thinking=enable_thinking,
         )
 
         # Handle single vs multiple requests
