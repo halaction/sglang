@@ -810,7 +810,7 @@ class TokenizeRequest(BaseModel):
     """Request schema for the /tokenize endpoint."""
 
     model: str = DEFAULT_MODEL_NAME
-    prompt: Union[str, List[str]]
+    prompt: Union[str, List[str] | List[ChatCompletionMessageParam]]
     add_special_tokens: bool = Field(
         default=True,
         description="whether to add model-specific special tokens (e.g. BOS/EOS) during encoding.",

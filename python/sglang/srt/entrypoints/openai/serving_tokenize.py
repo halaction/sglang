@@ -1,10 +1,11 @@
 import logging
 from http import HTTPStatus
-from typing import List, Union
+from typing import List, Optional, Union
 
 from fastapi import Request
 
 from sglang.srt.entrypoints.openai.protocol import (
+    ChatCompletionRequest,
     DetokenizeRequest,
     DetokenizeResponse,
     ErrorResponse,
@@ -12,6 +13,8 @@ from sglang.srt.entrypoints.openai.protocol import (
     TokenizeResponse,
 )
 from sglang.srt.entrypoints.openai.serving_base import OpenAIServingBase
+from sglang.srt.entrypoints.openai.serving_chat import OpenAIServingChat
+from sglang.srt.managers.io_struct import GenerateReqInput
 
 logger = logging.getLogger(__name__)
 
@@ -142,3 +145,53 @@ class OpenAIServingDetokenize(OpenAIServingBase):
                 err_type="InternalServerError",
                 status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
             )
+
+
+class OpenAIServingChatTokenize(OpenAIServingChat):
+    def _request_id_prefix(self) -> str:
+        return "chattok-"
+
+    def _validate_request(self, request: TokenizeRequest) -> Optional[str]:
+        """Validate that the input is valid."""
+        pass
+
+    def _convert_to_internal_request(
+        self,
+        request: TokenizeRequest,
+        raw_request: Request = None,
+    ) -> tuple[GenerateReqInput, TokenizeRequest]:
+        chat_completion_request = ChatCompletionRequest(
+            messages=request.prompt,
+            model=request.model,
+            # TODO: Process the tools too
+            # tools=request.tools,
+        )
+        adapted_request, _ = super()._convert_to_internal_request(
+            request=chat_completion_request,
+            raw_request=raw_request,
+        )
+
+        return adapted_request, request
+
+    async def _handle_non_streaming_request(
+        self,
+        adapted_request: GenerateReqInput,
+        request: TokenizeRequest,
+        raw_request: Request,
+    ) -> Union[TokenizeResponse, ErrorResponse]:
+        """Handle non-streaming chat tokenize request"""
+        try:
+            tokenized_obj = await self.tokenizer_manager._tokenize_one_request(
+                adapted_request
+            )
+            input_ids = tokenized_obj.input_ids
+
+            response = TokenizeResponse(
+                tokens=input_ids,
+                count=len(input_ids),
+                max_model_len=self.tokenizer_manager.context_len,
+            )
+        except ValueError as e:
+            return self.create_error_response(str(e))
+
+        return response

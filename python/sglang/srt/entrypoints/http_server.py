@@ -50,6 +50,7 @@ from fastapi.responses import ORJSONResponse, Response, StreamingResponse
 from sglang.srt.disaggregation.utils import FAKE_BOOTSTRAP_HOST, DisaggregationMode
 from sglang.srt.entrypoints.engine import _launch_subprocesses
 from sglang.srt.entrypoints.openai.protocol import (
+    ChatCompletionMessageParam,
     ChatCompletionRequest,
     CompletionRequest,
     DetokenizeRequest,
@@ -68,6 +69,7 @@ from sglang.srt.entrypoints.openai.serving_embedding import OpenAIServingEmbeddi
 from sglang.srt.entrypoints.openai.serving_rerank import OpenAIServingRerank
 from sglang.srt.entrypoints.openai.serving_score import OpenAIServingScore
 from sglang.srt.entrypoints.openai.serving_tokenize import (
+    OpenAIServingChatTokenize,
     OpenAIServingDetokenize,
     OpenAIServingTokenize,
 )
@@ -239,6 +241,9 @@ async def lifespan(fast_api_app: FastAPI):
         _global_state.tokenizer_manager
     )
     fast_api_app.state.openai_serving_detokenize = OpenAIServingDetokenize(
+        _global_state.tokenizer_manager
+    )
+    fast_api_app.state.openai_serving_chat_tokenize = OpenAIChatServingTokenize(
         _global_state.tokenizer_manager
     )
 
@@ -524,15 +529,19 @@ async def generate_request(obj: GenerateReqInput, request: Request):
                 async for out in _global_state.tokenizer_manager.generate_request(
                     obj, request
                 ):
-                    yield b"data: " + orjson.dumps(
-                        out, option=orjson.OPT_NON_STR_KEYS
-                    ) + b"\n\n"
+                    yield (
+                        b"data: "
+                        + orjson.dumps(out, option=orjson.OPT_NON_STR_KEYS)
+                        + b"\n\n"
+                    )
             except ValueError as e:
                 out = {"error": {"message": str(e)}}
                 logger.error(f"[http_server] Error: {e}")
-                yield b"data: " + orjson.dumps(
-                    out, option=orjson.OPT_NON_STR_KEYS
-                ) + b"\n\n"
+                yield (
+                    b"data: "
+                    + orjson.dumps(out, option=orjson.OPT_NON_STR_KEYS)
+                    + b"\n\n"
+                )
             yield b"data: [DONE]\n\n"
 
         return StreamingResponse(
@@ -697,9 +706,11 @@ async def dump_expert_distribution_record_async():
 @app.post("/update_weights_from_disk")
 async def update_weights_from_disk(obj: UpdateWeightFromDiskReqInput, request: Request):
     """Update the weights from disk inplace without re-launching the server."""
-    success, message, num_paused_requests = (
-        await _global_state.tokenizer_manager.update_weights_from_disk(obj, request)
-    )
+    (
+        success,
+        message,
+        num_paused_requests,
+    ) = await _global_state.tokenizer_manager.update_weights_from_disk(obj, request)
 
     # Update weight version if provided and weights update was successful
     if success and obj.weight_version is not None:
@@ -727,10 +738,11 @@ async def update_weights_from_disk(obj: UpdateWeightFromDiskReqInput, request: R
 async def init_weights_send_group_for_remote_instance(
     obj: InitWeightsSendGroupForRemoteInstanceReqInput, request: Request
 ):
-    success, message = (
-        await _global_state.tokenizer_manager.init_weights_send_group_for_remote_instance(
-            obj, request
-        )
+    (
+        success,
+        message,
+    ) = await _global_state.tokenizer_manager.init_weights_send_group_for_remote_instance(
+        obj, request
     )
     content = {"success": success, "message": message}
     if success:
@@ -743,10 +755,11 @@ async def init_weights_send_group_for_remote_instance(
 async def send_weights_to_remote_instance(
     obj: SendWeightsToRemoteInstanceReqInput, request: Request
 ):
-    success, message = (
-        await _global_state.tokenizer_manager.send_weights_to_remote_instance(
-            obj, request
-        )
+    (
+        success,
+        message,
+    ) = await _global_state.tokenizer_manager.send_weights_to_remote_instance(
+        obj, request
     )
     content = {"success": success, "message": message}
     if success:
@@ -775,9 +788,10 @@ async def destroy_weights_update_group(
     obj: DestroyWeightsUpdateGroupReqInput, request: Request
 ):
     """Destroy the parameter update group."""
-    success, message = (
-        await _global_state.tokenizer_manager.destroy_weights_update_group(obj, request)
-    )
+    (
+        success,
+        message,
+    ) = await _global_state.tokenizer_manager.destroy_weights_update_group(obj, request)
     content = {"success": success, "message": message}
     return ORJSONResponse(
         content, status_code=200 if success else HTTPStatus.BAD_REQUEST
@@ -815,10 +829,11 @@ async def update_weights_from_distributed(
     obj: UpdateWeightsFromDistributedReqInput, request: Request
 ):
     """Update model parameter from distributed online."""
-    success, message = (
-        await _global_state.tokenizer_manager.update_weights_from_distributed(
-            obj, request
-        )
+    (
+        success,
+        message,
+    ) = await _global_state.tokenizer_manager.update_weights_from_distributed(
+        obj, request
     )
 
     # Update weight version if provided and weights update was successful
@@ -1096,6 +1111,15 @@ async def openai_v1_embeddings(request: EmbeddingRequest, raw_request: Request):
 )
 async def openai_v1_tokenize(request: TokenizeRequest, raw_request: Request):
     """OpenAI-compatible tokenization endpoint."""
+    if (
+        isinstance(request.prompt, list)
+        and request.prompt
+        and isinstance(request.prompt[0], ChatCompletionMessageParam)
+    ):
+        return await raw_request.app.state.openai_serving_chat_tokenize.handle_request(
+            request, raw_request
+        )
+
     return await raw_request.app.state.openai_serving_tokenize.handle_request(
         request, raw_request
     )
