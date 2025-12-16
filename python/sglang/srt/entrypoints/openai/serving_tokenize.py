@@ -170,6 +170,7 @@ class OpenAIServingChatTokenize(OpenAIServingChat):
             request=chat_completion_request,
             raw_request=raw_request,
         )
+        adapted_request.is_chat_tokenize = True
 
         return adapted_request, request
 

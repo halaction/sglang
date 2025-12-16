@@ -173,6 +173,9 @@ class GenerateReqInput(BaseReq):
     # Whether to return entropy
     return_entropy: bool = False
 
+    # Whether to skip _validate_one_request in ChatTokenize
+    is_chat_tokenize: bool = False
+
     def contains_mm_input(self) -> bool:
         return (
             has_valid_data(self.image_data)
@@ -572,6 +575,7 @@ class GenerateReqInput(BaseReq):
             custom_labels=self.custom_labels,
             return_bytes=self.return_bytes,
             return_entropy=self.return_entropy,
+            is_chat_tokenize=self.is_chat_tokenize,
         )
 
 
