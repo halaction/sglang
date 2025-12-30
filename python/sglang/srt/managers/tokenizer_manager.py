@@ -604,7 +604,8 @@ class TokenizerManager(TokenizerCommunicatorMixin):
             mm_inputs = None
 
         # Allow tokenization above _max_req_len
-        if getattr(obj, "is_chat_tokenize", False):
+        if not getattr(obj, "is_chat_tokenize", False):
+            logger.info("Tokenizing chat request")
             self._validate_one_request(obj, input_ids)
 
         trace_slice_end("tokenize", obj.rid)

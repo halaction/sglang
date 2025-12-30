@@ -182,6 +182,9 @@ class OpenAIServingChatTokenize(OpenAIServingChat):
     ) -> Union[TokenizeResponse, ErrorResponse]:
         """Handle non-streaming chat tokenize request"""
         try:
+            tokenizer = self.tokenizer_manager.tokenizer
+            max_model_len = getattr(tokenizer, "model_max_length", -1)
+
             tokenized_obj = await self.tokenizer_manager._tokenize_one_request(
                 adapted_request
             )
@@ -190,9 +193,13 @@ class OpenAIServingChatTokenize(OpenAIServingChat):
             response = TokenizeResponse(
                 tokens=input_ids,
                 count=len(input_ids),
-                max_model_len=self.tokenizer_manager.context_len,
+                max_model_len=max_model_len,
             )
+            return response
         except ValueError as e:
-            return self.create_error_response(str(e))
-
-        return response
+            logger.error("Error during chat tokenization", exc_info=True)
+            return self.create_error_response(
+                f"Internal server error during chat tokenization: {e}",
+                err_type="InternalServerError",
+                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
