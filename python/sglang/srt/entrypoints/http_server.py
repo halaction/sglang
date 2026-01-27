@@ -77,6 +77,7 @@ from sglang.srt.entrypoints.openai.protocol import (
     ScoringRequest,
     TokenizeRequest,
     V1RerankReqInput,
+    ChatCompletionMessageParam,
 )
 from sglang.srt.entrypoints.openai.serving_chat import OpenAIServingChat
 from sglang.srt.entrypoints.openai.serving_classify import OpenAIServingClassify
@@ -87,6 +88,7 @@ from sglang.srt.entrypoints.openai.serving_score import OpenAIServingScore
 from sglang.srt.entrypoints.openai.serving_tokenize import (
     OpenAIServingDetokenize,
     OpenAIServingTokenize,
+    OpenAIServingChatTokenize,
 )
 from sglang.srt.entrypoints.warmup import execute_warmups
 from sglang.srt.environ import envs
@@ -287,6 +289,9 @@ async def lifespan(fast_api_app: FastAPI):
     )
     fast_api_app.state.openai_serving_tokenize = OpenAIServingTokenize(
         _global_state.tokenizer_manager
+    )
+    fast_api_app.state.openai_serving_chat_tokenize = OpenAIServingChatTokenize(
+        _global_state.tokenizer_manager, _global_state.template_manager
     )
     fast_api_app.state.openai_serving_detokenize = OpenAIServingDetokenize(
         _global_state.tokenizer_manager
@@ -1268,6 +1273,11 @@ async def openai_v1_classify(request: ClassifyRequest, raw_request: Request):
 )
 async def openai_v1_tokenize(request: TokenizeRequest, raw_request: Request):
     """OpenAI-compatible tokenization endpoint."""
+    if hasattr(request, "messages"):
+        return await raw_request.app.state.openai_serving_chat_tokenize.handle_request(
+            request, raw_request
+        )
+
     return await raw_request.app.state.openai_serving_tokenize.handle_request(
         request, raw_request
     )
