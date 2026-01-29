@@ -5,6 +5,7 @@ from typing import List, Union
 from fastapi import Request
 
 from sglang.srt.entrypoints.openai.protocol import (
+    ChatCompletionRequest,
     DetokenizeRequest,
     DetokenizeResponse,
     ErrorResponse,
@@ -12,6 +13,8 @@ from sglang.srt.entrypoints.openai.protocol import (
     TokenizeResponse,
 )
 from sglang.srt.entrypoints.openai.serving_base import OpenAIServingBase
+from sglang.srt.entrypoints.openai.serving_chat import OpenAIServingChat
+from sglang.srt.managers.io_struct import GenerateReqInput
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +142,64 @@ class OpenAIServingDetokenize(OpenAIServingBase):
                 )
             return self.create_error_response(
                 f"Internal server error during detokenization: {e}",
+                err_type="InternalServerError",
+                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+            )
+
+
+class OpenAIServingChatTokenize(OpenAIServingChat):
+    def _request_id_prefix(self) -> str:
+        return "chattok-"
+
+    def _validate_request(self, request: TokenizeRequest) -> None:
+        """Validate that the input is valid."""
+        pass
+
+    def _convert_to_internal_request(
+        self,
+        request: TokenizeRequest,
+        raw_request: Request = None,
+    ) -> tuple[GenerateReqInput, TokenizeRequest]:
+        chat_completion_request = ChatCompletionRequest(
+            messages=request.messages,
+            model=request.model,
+            # TODO: Process the tools too
+            # tools=request.tools,
+        )
+        adapted_request, _ = super()._convert_to_internal_request(
+            request=chat_completion_request,
+            raw_request=raw_request,
+        )
+        adapted_request.is_chat_tokenize = True
+
+        return adapted_request, request
+
+    async def _handle_non_streaming_request(
+        self,
+        adapted_request: GenerateReqInput,
+        request: TokenizeRequest,
+        raw_request: Request,
+    ) -> Union[TokenizeResponse, ErrorResponse]:
+        """Handle non-streaming chat tokenize request"""
+        try:
+            tokenizer = self.tokenizer_manager.tokenizer
+            max_model_len = getattr(tokenizer, "model_max_length", -1)
+
+            tokenized_obj = await self.tokenizer_manager._tokenize_one_request(
+                adapted_request
+            )
+            input_ids = tokenized_obj.input_ids
+
+            response = TokenizeResponse(
+                tokens=input_ids,
+                count=len(input_ids),
+                max_model_len=max_model_len,
+            )
+            return response
+        except ValueError as e:
+            logger.error("Error during chat tokenization", exc_info=True)
+            return self.create_error_response(
+                f"Internal server error during chat tokenization: {e}",
                 err_type="InternalServerError",
                 status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
             )

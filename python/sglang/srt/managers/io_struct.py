@@ -260,6 +260,9 @@ class GenerateReqInput(BaseReq, APIServingTimingMixin):
     # Whether to return entropy
     return_entropy: bool = False
 
+    # Whether to skip _validate_one_request, required in ChatTokenize
+    is_chat_tokenize: bool = False
+
     # Propagates trace context via Engine.generate/async_generate
     external_trace_header: Optional[Dict] = None
 
@@ -676,6 +679,7 @@ class GenerateReqInput(BaseReq, APIServingTimingMixin):
             custom_labels=self.custom_labels,
             return_bytes=self.return_bytes,
             return_entropy=self.return_entropy,
+            is_chat_tokenize=self.is_chat_tokenize,
             external_trace_header=self.external_trace_header,
             http_worker_ipc=self.http_worker_ipc,
             **{
