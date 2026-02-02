@@ -38,7 +38,6 @@ class Qwen25Detector(BaseFormatDetector):
         self.bot_token = "<tool_call>\n"
         self.eot_token = "\n</tool_call>"
         self.tool_call_separator = "\n"
-        self._normal_text_buffer = ""  # Buffer for handling partial end tokens
 
     def has_tool_call(self, text: str) -> bool:
         """Check if the text contains a Qwen 2.5 format tool call."""
@@ -77,40 +76,76 @@ class Qwen25Detector(BaseFormatDetector):
     ) -> StreamingParseResult:
         """
         Streaming incremental parsing for Qwen 2.5 tool calls.
-        Uses base class implementation with buffering to handle partial end tokens.
+        Parses complete <tool_call>...</tool_call> blocks from the buffer.
         """
-        result = super().parse_streaming_increment(new_text, tools)
+        self._buffer += new_text
+        current_text = self._buffer
+        start_token = self.bot_token.strip()
+        end_token = self.eot_token.strip()
 
-        # Handle partial end tokens that are streamed character by character
-        if result.normal_text:
-            self._normal_text_buffer += result.normal_text
+        def _strip_end_tokens(text: str) -> str:
+            if not text:
+                return text
+            return text.replace(self.eot_token, "").replace(end_token, "")
 
-            # Check if buffer contains complete end token (without leading newline)
-            end_token_without_newline = self.eot_token[1:]  # "</tool_call>"
-            if end_token_without_newline in self._normal_text_buffer:
-                cleaned_text = self._normal_text_buffer.replace(
-                    end_token_without_newline, ""
-                )
-                self._normal_text_buffer = ""
-                result.normal_text = cleaned_text
+        if start_token not in current_text:
+            partial_len = self._ends_with_partial_token(current_text, start_token)
+            if partial_len:
+                normal_text = current_text[:-partial_len]
+                self._buffer = current_text[-partial_len:]
             else:
-                # Check if buffer might contain partial end token at the end
-                partial_match_len = self._ends_with_partial_token(
-                    self._normal_text_buffer, end_token_without_newline
-                )
+                normal_text = current_text
+                self._buffer = ""
+            return StreamingParseResult(normal_text=_strip_end_tokens(normal_text))
 
-                if partial_match_len:
-                    # Keep potential partial match in buffer, return the rest
-                    result.normal_text = self._normal_text_buffer[:-partial_match_len]
-                    self._normal_text_buffer = self._normal_text_buffer[
-                        -partial_match_len:
-                    ]
-                else:
-                    # No partial match, return all buffered text
-                    result.normal_text = self._normal_text_buffer
-                    self._normal_text_buffer = ""
+        calls = []
+        normal_text_parts = []
+        buffer = current_text
 
-        return result
+        while True:
+            start_idx = buffer.find(start_token)
+            if start_idx == -1:
+                break
+
+            if start_idx > 0:
+                prefix = _strip_end_tokens(buffer[:start_idx])
+                if prefix:
+                    normal_text_parts.append(prefix)
+                buffer = buffer[start_idx:]
+
+            end_idx = buffer.find(end_token, len(start_token))
+            if end_idx == -1:
+                break
+
+            payload = buffer[len(start_token) : end_idx].strip()
+            if payload:
+                try:
+                    parsed_call = json.loads(payload)
+                    calls.extend(self.parse_base_json(parsed_call, tools))
+                except json.JSONDecodeError as e:
+                    logger.warning(
+                        "Failed to parse JSON part: %s, JSON parse error: %s",
+                        payload,
+                        str(e),
+                    )
+
+            buffer = buffer[end_idx + len(end_token) :]
+
+        if buffer and start_token not in buffer:
+            partial_len = self._ends_with_partial_token(buffer, start_token)
+            if partial_len:
+                normal_text_parts.append(_strip_end_tokens(buffer[:-partial_len]))
+                buffer = buffer[-partial_len:]
+            else:
+                normal_text_parts.append(_strip_end_tokens(buffer))
+                buffer = ""
+
+        self._buffer = buffer
+
+        return StreamingParseResult(
+            normal_text="".join(normal_text_parts),
+            calls=calls,
+        )
 
     def structure_info(self) -> _GetInfoFunc:
         return lambda name: StructureInfo(

@@ -14,6 +14,7 @@ from sglang.srt.function_call.lfm2_detector import Lfm2Detector
 from sglang.srt.function_call.llama32_detector import Llama32Detector
 from sglang.srt.function_call.mistral_detector import MistralDetector
 from sglang.srt.function_call.pythonic_detector import PythonicDetector
+from sglang.srt.function_call.qwen25_detector import Qwen25Detector
 from sglang.srt.function_call.qwen3_coder_detector import Qwen3CoderDetector
 from sglang.test.ci.ci_register import register_cpu_ci
 
@@ -1611,6 +1612,72 @@ class TestDeepSeekV32Detector(unittest.TestCase):
         self.assertEqual(tool_calls_by_index[0]["name"], "get_date")
         params = json.loads(tool_calls_by_index[0]["parameters"])
         self.assertEqual(params, {})
+
+
+class TestQwen25Detector(unittest.TestCase):
+    """Test suite for Qwen25Detector streaming parsing."""
+
+    def setUp(self):
+        self.tools = [
+            Tool(
+                type="function",
+                function=Function(
+                    name="get_weather",
+                    parameters={
+                        "type": "object",
+                        "properties": {"location": {"type": "string"}},
+                        "required": ["location"],
+                    },
+                ),
+            ),
+            Tool(
+                type="function",
+                function=Function(
+                    name="search",
+                    parameters={
+                        "type": "object",
+                        "properties": {"query": {"type": "string"}},
+                        "required": ["query"],
+                    },
+                ),
+            ),
+        ]
+        self.detector = Qwen25Detector()
+
+    def test_streaming_two_tool_calls_with_think_prefix(self):
+        chunks = [
+            "<think>Plan</think>\n<tool_call>\n",
+            '{"name":"get_weather","arguments":{"location":"Tokyo"}}',
+            "\n</tool_call>\n<tool_call>\n",
+            '{"name":"search","arguments":{"query":"ramen"}}',
+            "\n</tool_call>",
+        ]
+
+        calls = []
+        normal_text = ""
+        for chunk in chunks:
+            result = self.detector.parse_streaming_increment(chunk, self.tools)
+            calls.extend(result.calls)
+            if result.normal_text:
+                normal_text += result.normal_text
+
+        self.assertIn("<think>Plan</think>", normal_text)
+        self.assertEqual([call.name for call in calls], ["get_weather", "search"])
+
+    def test_streaming_split_end_and_start_tokens(self):
+        chunks = [
+            "<think>Prep</think>\n<tool_call>\n",
+            '{"name":"get_weather","arguments":{"location":"Paris"}}\n</tool',
+            "_call>\n<tool_call>\n",
+            '{"name":"search","arguments":{"query":"bistros"}}\n</tool_call>',
+        ]
+
+        calls = []
+        for chunk in chunks:
+            result = self.detector.parse_streaming_increment(chunk, self.tools)
+            calls.extend(result.calls)
+
+        self.assertEqual([call.name for call in calls], ["get_weather", "search"])
 
 
 class TestQwen3CoderDetector(unittest.TestCase):
