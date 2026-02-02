@@ -37,7 +37,10 @@ class Qwen25Detector(BaseFormatDetector):
         super().__init__()
         self.bot_token = "<tool_call>\n"
         self.eot_token = "\n</tool_call>"
-        self.tool_call_separator = "\n"
+        # NOTE: Qwen uses separate <tool_call>...</tool_call> blocks, not a simple
+        # JSON-object separator. Keeping a newline separator here can confuse the
+        # BaseFormatDetector streaming parser after finishing one call (the end tag
+        # also starts with a newline), causing subsequent tool calls to be dropped.
         self._normal_text_buffer = ""  # Buffer for handling partial end tokens
 
     def has_tool_call(self, text: str) -> bool:
