@@ -52,6 +52,7 @@ from sglang.srt.entrypoints.engine import _launch_subprocesses
 from sglang.srt.entrypoints.openai.protocol import (
     ChatCompletionMessageParam,
     ChatCompletionRequest,
+    ChatTokenizeRequest,
     CompletionRequest,
     DetokenizeRequest,
     EmbeddingRequest,
@@ -1109,7 +1110,9 @@ async def openai_v1_embeddings(request: EmbeddingRequest, raw_request: Request):
     dependencies=[Depends(validate_json_request)],
     include_in_schema=False,
 )
-async def openai_v1_tokenize(request: TokenizeRequest, raw_request: Request):
+async def openai_v1_tokenize(
+    request: TokenizeRequest | ChatTokenizeRequest, raw_request: Request
+):
     """OpenAI-compatible tokenization endpoint."""
 
     if hasattr(request, "messages"):

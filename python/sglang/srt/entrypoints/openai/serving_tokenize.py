@@ -6,6 +6,7 @@ from fastapi import Request
 
 from sglang.srt.entrypoints.openai.protocol import (
     ChatCompletionRequest,
+    ChatTokenizeRequest,
     DetokenizeRequest,
     DetokenizeResponse,
     ErrorResponse,
@@ -151,17 +152,17 @@ class OpenAIServingChatTokenize(OpenAIServingChat):
     def _request_id_prefix(self) -> str:
         return "chattok-"
 
-    def _validate_request(self, request: TokenizeRequest) -> Optional[str]:
+    def _validate_request(self, request: ChatTokenizeRequest) -> Optional[str]:
         """Validate that the input is valid."""
         pass
 
     def _convert_to_internal_request(
         self,
-        request: TokenizeRequest,
+        request: ChatTokenizeRequest,
         raw_request: Request = None,
-    ) -> tuple[GenerateReqInput, TokenizeRequest]:
+    ) -> tuple[GenerateReqInput, ChatTokenizeRequest]:
         chat_completion_request = ChatCompletionRequest(
-            messages=request.prompt,
+            messages=request.messages,
             model=request.model,
             # TODO: Process the tools too
             # tools=request.tools,
@@ -177,7 +178,7 @@ class OpenAIServingChatTokenize(OpenAIServingChat):
     async def _handle_non_streaming_request(
         self,
         adapted_request: GenerateReqInput,
-        request: TokenizeRequest,
+        request: ChatTokenizeRequest,
         raw_request: Request,
     ) -> Union[TokenizeResponse, ErrorResponse]:
         """Handle non-streaming chat tokenize request"""

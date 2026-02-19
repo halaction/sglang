@@ -806,7 +806,7 @@ class RerankResponse(BaseModel):
     meta_info: Optional[dict] = None
 
 
-class TokenizePromptRequest(BaseModel):
+class TokenizeRequest(BaseModel):
     """Request schema for the /tokenize endpoint."""
 
     model: str = DEFAULT_MODEL_NAME
@@ -817,7 +817,7 @@ class TokenizePromptRequest(BaseModel):
     )
 
 
-class TokenizeMessagesRequest(BaseModel):
+class ChatTokenizeRequest(BaseModel):
     """Request schema for the /tokenize endpoint with chat completion inputs."""
 
     model: str = DEFAULT_MODEL_NAME
@@ -826,12 +826,6 @@ class TokenizeMessagesRequest(BaseModel):
         default=True,
         description="whether to add model-specific special tokens (e.g. BOS/EOS) during encoding.",
     )
-
-
-TokenizeRequest: TypeAlias = Union[
-    TokenizePromptRequest,
-    TokenizeMessagesRequest,
-]
 
 
 class TokenizeResponse(BaseModel):
@@ -866,6 +860,7 @@ OpenAIServingRequest = Union[
     ScoringRequest,
     V1RerankReqInput,
     TokenizeRequest,
+    ChatTokenizeRequest,
     DetokenizeRequest,
 ]
 
