@@ -173,7 +173,7 @@ class GenerateReqInput(BaseReq):
     # Whether to return entropy
     return_entropy: bool = False
 
-    # Whether to skip _validate_one_request in ChatTokenize
+    # Whether to skip _validate_one_request, required in ChatTokenize
     is_chat_tokenize: bool = False
 
     def contains_mm_input(self) -> bool:

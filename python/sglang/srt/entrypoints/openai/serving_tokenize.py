@@ -38,7 +38,7 @@ class OpenAIServingTokenize(OpenAIServingBase):
     ) -> Union[TokenizeResponse, ErrorResponse]:
         try:
             tokenizer = self.tokenizer_manager.tokenizer
-            max_model_len = getattr(tokenizer, "model_max_length", -1)
+            max_model_len = self.tokenizer_manager.context_len
 
             if isinstance(request.prompt, str):
                 token_ids = tokenizer.encode(
@@ -182,8 +182,7 @@ class OpenAIServingChatTokenize(OpenAIServingChat):
     ) -> Union[TokenizeResponse, ErrorResponse]:
         """Handle non-streaming chat tokenize request"""
         try:
-            tokenizer = self.tokenizer_manager.tokenizer
-            max_model_len = getattr(tokenizer, "model_max_length", -1)
+            max_model_len = self.tokenizer_manager.context_len
 
             tokenized_obj = await self.tokenizer_manager._tokenize_one_request(
                 adapted_request

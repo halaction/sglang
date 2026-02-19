@@ -806,15 +806,32 @@ class RerankResponse(BaseModel):
     meta_info: Optional[dict] = None
 
 
-class TokenizeRequest(BaseModel):
+class TokenizePromptRequest(BaseModel):
     """Request schema for the /tokenize endpoint."""
 
     model: str = DEFAULT_MODEL_NAME
-    prompt: Union[str, List[str] | List[ChatCompletionMessageParam]]
+    prompt: Union[str, List[str]]
     add_special_tokens: bool = Field(
         default=True,
         description="whether to add model-specific special tokens (e.g. BOS/EOS) during encoding.",
     )
+
+
+class TokenizeMessagesRequest(BaseModel):
+    """Request schema for the /tokenize endpoint with chat completion inputs."""
+
+    model: str = DEFAULT_MODEL_NAME
+    messages: List[ChatCompletionMessageParam]
+    add_special_tokens: bool = Field(
+        default=True,
+        description="whether to add model-specific special tokens (e.g. BOS/EOS) during encoding.",
+    )
+
+
+TokenizeRequest: TypeAlias = Union[
+    TokenizePromptRequest,
+    TokenizeMessagesRequest,
+]
 
 
 class TokenizeResponse(BaseModel):

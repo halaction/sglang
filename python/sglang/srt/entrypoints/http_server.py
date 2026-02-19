@@ -161,9 +161,9 @@ async def init_multi_tokenizer() -> ServerArgs:
     server_args: ServerArgs
 
     # API key authentication is not supported in multi-tokenizer mode
-    assert server_args.api_key is None, (
-        "API key is not supported in multi-tokenizer mode"
-    )
+    assert (
+        server_args.api_key is None
+    ), "API key is not supported in multi-tokenizer mode"
 
     port_args.tokenizer_ipc_name = (
         f"ipc://{tempfile.NamedTemporaryFile(delete=False).name}"
@@ -494,9 +494,9 @@ async def get_weight_version():
 @app.get("/get_server_info")
 async def get_server_info():
     # Returns interna states per DP.
-    internal_states: List[
-        Dict[Any, Any]
-    ] = await _global_state.tokenizer_manager.get_internal_state()
+    internal_states: List[Dict[Any, Any]] = (
+        await _global_state.tokenizer_manager.get_internal_state()
+    )
     return {
         **dataclasses.asdict(_global_state.tokenizer_manager.server_args),
         **_global_state.scheduler_info,
@@ -1111,11 +1111,8 @@ async def openai_v1_embeddings(request: EmbeddingRequest, raw_request: Request):
 )
 async def openai_v1_tokenize(request: TokenizeRequest, raw_request: Request):
     """OpenAI-compatible tokenization endpoint."""
-    if (
-        isinstance(request.prompt, list)
-        and request.prompt
-        and isinstance(request.prompt[0], ChatCompletionMessageParam)
-    ):
+
+    if hasattr(request, "messages"):
         return await raw_request.app.state.openai_serving_chat_tokenize.handle_request(
             request, raw_request
         )
