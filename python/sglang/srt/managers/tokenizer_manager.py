@@ -766,7 +766,9 @@ class TokenizerManager(TokenizerCommunicatorMixin, TokenizerManagerScoreMixin):
         else:
             mm_inputs = None
 
-        self._validate_one_request(obj, input_ids)
+        # Allow tokenization above _max_req_len
+        if not getattr(obj, "is_chat_tokenize", False):
+            self._validate_one_request(obj, input_ids)
         return self._create_tokenized_object(
             obj, input_text, input_ids, input_embeds, mm_inputs, token_type_ids
         )

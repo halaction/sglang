@@ -1069,8 +1069,8 @@ class RerankResponse(BaseModel):
         return data
 
 
-class TokenizeRequest(BaseModel):
-    """Request schema for the /tokenize endpoint."""
+class TokenizePromptRequest(BaseModel):
+    """Request schema for the /tokenize endpoint with prompt inputs."""
 
     model: str = DEFAULT_MODEL_NAME
     prompt: Union[str, List[str]]
@@ -1086,6 +1086,23 @@ class TokenizeResponse(BaseModel):
     tokens: Union[List[int], List[List[int]]]
     count: Union[int, List[int]]
     max_model_len: int
+
+
+class TokenizeMessagesRequest(BaseModel):
+    """Request schema for the /tokenize endpoint with messages inputs."""
+
+    model: str = DEFAULT_MODEL_NAME
+    messages: List[ChatCompletionMessageParam]
+    add_special_tokens: bool = Field(
+        default=True,
+        description="whether to add model-specific special tokens (e.g. BOS/EOS) during encoding.",
+    )
+
+
+TokenizeRequest: TypeAlias = Union[
+    TokenizePromptRequest,
+    TokenizeMessagesRequest,
+]
 
 
 class DetokenizeRequest(BaseModel):
@@ -1427,11 +1444,6 @@ class ToolCallProcessingResult(NamedTuple):
 class ResponseReasoningTextContent(BaseModel):
     text: str
     type: Literal["reasoning_text"] = "reasoning_text"
-
-
-ResponseInputOutputItem: TypeAlias = Union[
-    ResponseInputItemParam, "ResponseReasoningItem", ResponseFunctionToolCall
-]
 
 
 # ================== Transcription API Protocol Definitions ==================
